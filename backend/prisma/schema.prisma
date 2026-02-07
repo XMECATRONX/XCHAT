@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  phone         String        @unique
+  role          String        @default("USER")
+  birthDate     DateTime? 
+  isAdult       Boolean       @default(false)
+  solanaAddress String? @unique
+  isVerifiedKYC Boolean       @default(false)
+  balanceXT Float         @default(0)
+  dailyPostCount Int          @default(0)
+  lastPostReset DateTime      @default(now())
+  fromTransfers Transaction[] @relation("TransactionFromUser")
+  toTransfers   Transaction[] @relation("TransactionToUser")
+  mediaItems    MediaItem[]   @relation("MediaItemCreator")
+  mediaPacks    MediaPack[]   @relation("MediaPackCreator")
+  flashSales    FlashSale[]   @relation("FlashSaleCreator")
+  mediaUnlocks  MediaUnlock[]
+  watermarks    MediaWatermark[]
+  subscriptions Subscription[]   @relation("SubscriptionUser")
+  subscribers   Subscription[]   @relation("SubscriptionCreator")
+  contentOwnerships ContentOwnership[]
+}
+
+model Transaction {
+  id          Int              @id @default(autoincrement())
+  fromUserId  Int?
+  toUserId    Int?
+  amount      Float
+  type        String
+  createdAt   DateTime         @default(now())
+  prevHash    String
+  currentHash String           @unique
+  fromUser    User?            @relation("TransactionFromUser", fields: [fromUserId], references: [id])
+  toUser      User?            @relation("TransactionToUser", fields: [toUserId], references: [id])
+  mediaUnlock MediaUnlock?
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([createdAt])
+}
+
+model MediaPack {
+  isRestricted Boolean       @default(false)
+  id          Int        @id @default(autoincrement())
+  creatorId   Int
+  title       String
+  description String?
+  price       Float?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  creator     User       @relation("MediaPackCreator", fields: [creatorId], references: [id])
+  items       MediaItem[]
+  flashSales  FlashSale[]
+  contentOwnerships ContentOwnership[]
+
+  @@index([creatorId])
+}
+
+model MediaItem {
+  isRestricted Boolean       @default(false)
+  id             Int        @id @default(autoincrement())
+  creatorId      Int
+  packId         Int?
+  title          String?
+  storageKey     String
+  contentType    String
+  sizeBytes      Int
+  requiresUnlock Boolean    @default(true)
+  price          Float?
+  createdAt      DateTime   @default(now())
+  creator        User       @relation("MediaItemCreator", fields: [creatorId], references: [id])
+  pack           MediaPack? @relation(fields: [packId], references: [id])
+  unlocks        MediaUnlock[]
+  watermarks     MediaWatermark[]
+  flashSales     FlashSale[]
+
+  @@index([creatorId])
+  @@index([packId])
+  @@index([createdAt])
+}
+
+model FlashSale {
+  id          Int        @id @default(autoincrement())
+  creatorId   Int
+  mediaItemId Int?
+  packId      Int?
+  title       String
+  price       Float
+  createdAt   DateTime   @default(now())
+  expiresAt   DateTime
+  isActive    Boolean    @default(true)
+  creator     User       @relation("FlashSaleCreator", fields: [creatorId], references: [id])
+  mediaItem   MediaItem? @relation(fields: [mediaItemId], references: [id])
+  pack        MediaPack? @relation(fields: [packId], references: [id])
+
+  @@index([creatorId])
+  @@index([expiresAt])
+}
+
+model MediaUnlock {
+  id            Int         @id @default(autoincrement())
+  mediaItemId   Int
+  userId        Int
+  transactionId Int         @unique
+  createdAt     DateTime    @default(now())
+  isRestricted  Boolean     @default(false)
+  mediaItem     MediaItem   @relation(fields: [mediaItemId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  @@unique([mediaItemId, userId])
+  @@index([userId])
+}
+
+model MediaWatermark {
+  id          Int       @id @default(autoincrement())
+  mediaItemId Int
+  userId      Int
+  storageKey  String
+  createdAt   DateTime  @default(now())
+  mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([mediaItemId, userId])
+  @@index([userId])
+}
+
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  creatorId Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("SubscriptionUser", fields: [userId], references: [id])
+  creator   User     @relation("SubscriptionCreator", fields: [creatorId], references: [id])
+
+  @@unique([userId, creatorId])
+  @@index([creatorId])
+  @@index([expiresAt])
+}
+
+model ContentOwnership {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  packId    Int
+  isVaulted Boolean  @default(false)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  pack      MediaPack @relation(fields: [packId], references: [id])
+
+  @@unique([userId, packId])
+  @@index([packId])
+}
