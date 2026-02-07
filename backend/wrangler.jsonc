@@ -1,8 +1,11 @@
 {
   "name": "xchat-backend",
-  "compatibility_date": "2026-02-07",
   "main": "src/index.ts",
-  "observability": {
-    "enabled": true
+  "compatibility_date": "2026-02-07",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "ENVIRONMENT": "production"
   }
 }
